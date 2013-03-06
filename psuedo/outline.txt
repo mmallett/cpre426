@@ -1,0 +1,33 @@
+use the master slave paradigm
+
+master creates jobs
+dispatches them if there are slaves waiting
+otherwise throws the job onto a queue
+
+DEFINE N 8
+
+master:
+	queue job_pool //create a job pool queue
+	
+	/*
+	* create a queue of workers with everyone except the
+	* master waiting in line
+	*/
+	queue workers
+	for i in 1 to p-1
+		enque i
+		
+	for i in 1 to k
+		int board_layout = 0;
+		for j in 1 to N
+			board_layout += j * 10^((N - 1)-i)
+	
+
+
+
+
+
+slave:
+
+
+boolean is_valid(int board_layout);
