@@ -1,3 +1,6 @@
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class Test {
 	
@@ -12,14 +15,28 @@ public class Test {
 			end = end * 10 + 8; //shift left, set lsd to 8
 		}
 		
+		List<Integer> answers = new ArrayList<Integer>();
+		
 		int count = 0;
+		
+		long time_start = System.currentTimeMillis();
+		
 		for(int i=start; i<=end; i++){
 			if(is_valid(i)){
-				System.out.println(i);
+				answers.add(i);
 				count ++;
 			}
 		}
+		
+		long time_end = System.currentTimeMillis();
+		
+		for(int i : answers){
+			System.out.println(i);
+		}
+		
 		System.out.println(count + " solutions");
+		
+		System.out.println(time_end - time_start + " elapsed (ms)");
 		
 	}
 	
