@@ -1,7 +1,7 @@
 
 public class Test {
 	
-	static int k = 3;
+	static int k = 8;
 	
 	public static void main(String args[]){
 		
@@ -12,9 +12,14 @@ public class Test {
 			end = end * 10 + 8; //shift left, set lsd to 8
 		}
 		
+		int count = 0;
 		for(int i=start; i<=end; i++){
-			System.out.println(i + " " + is_valid(i));
+			if(is_valid(i)){
+				System.out.println(i);
+				count ++;
+			}
 		}
+		System.out.println(count + " solutions");
 		
 	}
 	
