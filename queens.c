@@ -7,7 +7,7 @@
 #define WORKTAG 1
 #define DIETAG 2
 
-#define BUFFER_SIZE 20
+#define BUFFER_SIZE 30
 #define ANSWER SIZE 100
 
 
@@ -74,6 +74,10 @@ void master()
 	int work;
 	int result;
 	MPI_Status status;
+	
+	int buffer[BUFFER_SIZE];
+	int answers[ANSWER_SIZE];
+	int answer_index = 0;
 
 	//generate tasks
 
@@ -89,7 +93,7 @@ void master()
 
 	for(i=start; i<=end; i++)
 	{
-		if(is_valid(i))
+		if(is_valid(i, k))
 		{
 			enqueue(jobs, i);
 		}
@@ -110,12 +114,13 @@ void master()
 
 		/* Send it to each rank */
 
-		MPI_Send(&work,             /* message buffer */
-		1,                 /* one data item */
-		MPI_INT,           /* data item is an integer */
-		rank,              /* destination process rank */
-		WORKTAG,           /* user chosen message tag */
-		MPI_COMM_WORLD);   /* default communicator */
+		MPI_Send(
+			&work,    		   /* message buffer */
+			1,                 /* one data item */
+			MPI_INT,           /* data item is an integer */
+			rank,              /* destination process rank */
+			WORKTAG,           /* user chosen message tag */
+			MPI_COMM_WORLD);   /* default communicator */
 	}
 
 	/* Loop over getting new work requests until there is no more work
@@ -126,24 +131,33 @@ void master()
 
 		/* Receive results from a slave */
 
-		MPI_Recv(&result,           /* message buffer */
-		1,                 /* one data item */
-		MPI_DOUBLE,        /* of type double real */
-		MPI_ANY_SOURCE,    /* receive from any sender */
-		MPI_ANY_TAG,       /* any type of message */
-		MPI_COMM_WORLD,    /* default communicator */
-		&status);          /* info about the received message */
+		MPI_Recv(
+			&buffer,           /* message buffer */
+			BUFFER_SIZE,       /* one data item */
+			MPI_INT,           /* of type double real */
+			MPI_ANY_SOURCE,    /* receive from any sender */
+			MPI_ANY_TAG,       /* any type of message */
+			MPI_COMM_WORLD,    /* default communicator */
+			&status);          /* info about the received message */
+		
+		int received = buffer[0];
+		
+		for(i=1; i<=received; i++)
+		{
+			answers[answer_index++] = buffer[i];
+		}
 
 		/* Send the slave a new work unit */
 
 		work = pop(jobs);
 
-		MPI_Send(&work,             /* message buffer */
-		1,                 /* one data item */
-		MPI_INT,           /* data item is an integer */
-		status.MPI_SOURCE, /* to who we just received from */
-		WORKTAG,           /* user chosen message tag */
-		MPI_COMM_WORLD);   /* default communicator */
+		MPI_Send(
+			&work,             /* message buffer */
+			1,                 /* one data item */
+			MPI_INT,           /* data item is an integer */
+			status.MPI_SOURCE, /* to who we just received from */
+			WORKTAG,           /* user chosen message tag */
+			MPI_COMM_WORLD);   /* default communicator */
 
 	}
 
@@ -152,8 +166,21 @@ void master()
 
 	for (rank = 1; rank < ntasks; ++rank)
 	{
-		MPI_Recv(&result, 1, MPI_DOUBLE, MPI_ANY_SOURCE,
-		MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		MPI_Recv(
+			&buffer,
+			BUFFER_SIZE,
+			MPI_INT,
+			MPI_ANY_SOURCE,
+			MPI_ANY_TAG,
+			MPI_COMM_WORLD,
+			&status);
+			
+		int received = buffer[0];
+		
+		for(i=1; i<=received; i++)
+		{
+			answers[answer_index++] = buffer[i];
+		}
 	}
 
 	/* Tell all the slaves to exit by sending an empty message with the
@@ -161,7 +188,13 @@ void master()
 
 	for (rank = 1; rank < ntasks; ++rank)
 	{
-		MPI_Send(0, 0, MPI_INT, rank, DIETAG, MPI_COMM_WORLD);
+		MPI_Send(
+			0,
+			0,
+			MPI_INT,
+			rank,
+			DIETAG,
+			MPI_COMM_WORLD);
 	}
 }
 
@@ -169,8 +202,8 @@ void master()
 static void 
 slave(void)
 {
-	unit_of_work_t work;
-	unit_result_t results;
+	int work;
+	int buffer[BUFFER_SIZE];
 	MPI_Status status;
 
 	while (1)
@@ -178,8 +211,14 @@ slave(void)
 
 		/* Receive a message from the master */
 
-		MPI_Recv(&work, 1, MPI_INT, 0, MPI_ANY_TAG,
-		MPI_COMM_WORLD, &status);
+		MPI_Recv(
+			&work,
+			1,
+			MPI_INT,
+			0,
+			MPI_ANY_TAG,
+			MPI_COMM_WORLD,
+			&status);
 
 		/* Check the tag of the received message. */
 
@@ -194,8 +233,49 @@ slave(void)
 
 		/* Send the result back */
 
-		MPI_Send(&result, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+		MPI_Send(
+			&buffer,
+			BUFFER_SIZE,
+			MPI_INT,
+			0,
+			0,
+			MPI_COMM_WORLD);
 	}
+}
+
+static int is_valid(int layout, int digit_count){
+		
+	int digits[digit_count];
+	
+	//parse digits into an array
+	for(int i=digit_count-1; i>=0; i--){
+		digits[i] = layout %10;
+		layout /= 10;
+	}
+	
+	for(int i=0; i<digit_count; i++){
+		
+		if(digits[i] == 0 || digits[i] == 9) return 0; //case of invalid digits
+		
+		if(i == digit_count-1) continue; //avoid index out of bounds. collisions will have been hit by now
+		
+		/*
+		 * digit collisions
+		 * note there is no need to check backwards
+		 * the leftmost member of the collision will be able to detect the collision
+		 * and return false
+		 */
+		for(int j=i+1; j<digit_count; j++){
+			if(digits[i] == digits[j]) //row collision
+				return 0; 
+			else if(digits[i] == digits[j] + (j - i)) //diagonal down collision
+				return 0;
+			else if(digits[i] == digits[j] - (j - i)) //diagonal up collision
+				return 0;
+		}
+	}
+	
+	return 1;
 }
 
 //////// QUEUE IMPLEMENTATION
