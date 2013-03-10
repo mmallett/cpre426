@@ -9,6 +9,43 @@
 void master(void);
 void slave(void);
 
+// check if the 8 digit integer value is a valid board layout
+int is_valid(int i);
+
+static int k = 3;
+
+//////// QUEUE DEFINITIONS
+
+// queue element data type
+typedef struct node
+{
+	int data;
+	struct node * next;
+} node_t;
+
+// queue data type
+typedef struct queue
+{
+	int size;
+	node_t * head;
+	node_t * tail;
+} queue_t;
+
+// allocates and initializes a new queue
+queue_t * init_queue();
+
+// add a new element to the queue, node is created internally
+void enqueue(queue_t * q, int data);
+
+// 0 if queue is not empty 1 if it is empty
+int is_empty(queue_t * q);
+
+// returns the value of the first element in the queue
+// returns 0 unconditionally if empty, recommend calling is_empty
+// prior to this
+int pop(queue_t *);
+
+//////// END QUEUE
 
 int
 main(int argc, char **argv)
@@ -34,6 +71,26 @@ void master()
   unit_of_work_t work;
   unit_result_t result;
   MPI_Status status;
+  
+  //generate tasks
+  
+  int start = 1, end = 8, i;
+  
+  for(i=0; i<k-1; i++)
+  {
+	start = start * 10 + 1;
+	end = end * 10 + 8;
+	}
+	
+	queue_t * jobs = init_queue();
+	
+	for(i=start; i<=end; i++)
+	{
+		if(is_valid(i))
+		{
+			enqueue(jobs, i);
+		}
+	}
 
   /* Find out how many processes there are in the default
      communicator */
@@ -45,23 +102,21 @@ void master()
   for (rank = 1; rank < ntasks; ++rank) {
 
     /* Find the next item of work to do */
+	work = pop(jobs);
 
-    work = get_next_work_item();
+	/* Send it to each rank */
 
-    /* Send it to each rank */
-
-    MPI_Send(&work,             /* message buffer */
-             1,                 /* one data item */
-             MPI_INT,           /* data item is an integer */
-             rank,              /* destination process rank */
-             WORKTAG,           /* user chosen message tag */
-             MPI_COMM_WORLD);   /* default communicator */
+	MPI_Send(&work,             /* message buffer */
+			 1,                 /* one data item */
+			 MPI_INT,           /* data item is an integer */
+			 rank,              /* destination process rank */
+			 WORKTAG,           /* user chosen message tag */
+			 MPI_COMM_WORLD);   /* default communicator */
   }
 
   /* Loop over getting new work requests until there is no more work
      to be done */
 
-  work = get_next_work_item();
   while (work != NULL) {
 
     /* Receive results from a slave */
@@ -157,4 +212,54 @@ do_work(unit_of_work_t work)
 {
   /* Fill in with whatever is necessary to process the work and
      generate a result */
+}
+
+//////// QUEUE IMPLEMENTATION
+
+queue_t * init_queue()
+{
+	queue_t * ret = (queue_t *) malloc(sizeof(queue_t));
+	ret -> size = 0;
+	ret -> head = NULL;
+	ret -> tail = NULL;
+}
+
+void enqueue(queue_t * q, int data)
+{
+	node_t * new_node = (node_t *) malloc(sizeof(node_t));
+	new_node -> data = data;
+	new_node -> next = NULL;
+	if(is_empty(q))
+	{
+		q -> head = new_node;
+		q -> tail = new_node;
+	}
+	else
+	{
+		q -> tail -> next = new_node;
+		q -> tail = new_node;
+	}
+	(q -> size) ++;
+}
+
+int is_empty(queue_t * q)
+{
+	return q -> size <= 0;
+}
+
+int pop(queue_t * q)
+{
+	if( q -> size > 0)
+	{
+		node_t * popped = q -> head;
+		int ret = popped -> data;
+		q -> head = popped -> next;
+		free(popped);
+		(q -> size) --;
+		return ret;
+	}
+	else
+	{
+		return 0;
+	}
 }
