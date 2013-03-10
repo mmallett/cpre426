@@ -68,8 +68,8 @@ main(int argc, char **argv)
 void master()
 {
   int ntasks, rank;
-  unit_of_work_t work;
-  unit_result_t result;
+  int work;
+  int result;
   MPI_Status status;
   
   //generate tasks
@@ -117,7 +117,7 @@ void master()
   /* Loop over getting new work requests until there is no more work
      to be done */
 
-  while (work != NULL) {
+  while (!is_empty(jobs)) {
 
     /* Receive results from a slave */
 
@@ -130,6 +130,8 @@ void master()
              &status);          /* info about the received message */
 
     /* Send the slave a new work unit */
+	
+	work = pop(jobs);
 
     MPI_Send(&work,             /* message buffer */
              1,                 /* one data item */
@@ -138,9 +140,6 @@ void master()
              WORKTAG,           /* user chosen message tag */
              MPI_COMM_WORLD);   /* default communicator */
 
-    /* Get the next unit of work to be done */
-
-    work = get_next_work_item();
   }
 
   /* There's no more work to be done, so receive all the outstanding
