@@ -196,6 +196,11 @@ void master()
 			DIETAG,
 			MPI_COMM_WORLD);
 	}
+	
+	for(i=0; i<answer_index; i++)
+	{
+		printf("%d\n", answers[i]);
+	}
 }
 
 
