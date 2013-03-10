@@ -1,29 +1,35 @@
+
+#include <stdio.h>
+#include <stdlib.h>
+
 #include <mpi.h>
 
 #define WORKTAG 1
 #define DIETAG 2
 
+#define BUFFER_SIZE 20
+#define ANSWER SIZE 100
 
-/* Local functions */
+
+//////// MASTER SLAVE PROBLEM DEFINITIONS
 
 void master(void);
 void slave(void);
 
-// check if the 8 digit integer value is a valid board layout
 int is_valid(int i);
 
 static int k = 3;
 
+//////// END MASTER SLAVE
+
 //////// QUEUE DEFINITIONS
 
-// queue element data type
 typedef struct node
 {
 	int data;
 	struct node * next;
 } node_t;
 
-// queue data type
 typedef struct queue
 {
 	int size;
@@ -31,18 +37,12 @@ typedef struct queue
 	node_t * tail;
 } queue_t;
 
-// allocates and initializes a new queue
 queue_t * init_queue();
 
-// add a new element to the queue, node is created internally
 void enqueue(queue_t * q, int data);
 
-// 0 if queue is not empty 1 if it is empty
 int is_empty(queue_t * q);
 
-// returns the value of the first element in the queue
-// returns 0 unconditionally if empty, recommend calling is_empty
-// prior to this
 int pop(queue_t *);
 
 //////// END QUEUE
@@ -50,40 +50,43 @@ int pop(queue_t *);
 int
 main(int argc, char **argv)
 {
-  MPI_Init(&argc, &argv);
-  
-  int myrank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-  if (myrank == 0) {
-    master();
-  } else {
-    slave();
-  }
+	MPI_Init(&argc, &argv);
 
-  MPI_Finalize();
-  return 0;
+	int myrank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+	if (myrank == 0)
+	{
+		master();
+	}
+	else
+	{
+		slave();
+	}
+
+	MPI_Finalize();
+	return 0;
 }
 
 
 void master()
 {
-  int ntasks, rank;
-  int work;
-  int result;
-  MPI_Status status;
-  
-  //generate tasks
-  
-  int start = 1, end = 8, i;
-  
-  for(i=0; i<k-1; i++)
-  {
-	start = start * 10 + 1;
-	end = end * 10 + 8;
+	int ntasks, rank;
+	int work;
+	int result;
+	MPI_Status status;
+
+	//generate tasks
+
+	int start = 1, end = 8, i;
+
+	for(i=0; i<k-1; i++)
+	{
+		start = start * 10 + 1;
+		end = end * 10 + 8;
 	}
-	
+
 	queue_t * jobs = init_queue();
-	
+
 	for(i=start; i<=end; i++)
 	{
 		if(is_valid(i))
@@ -92,125 +95,107 @@ void master()
 		}
 	}
 
-  /* Find out how many processes there are in the default
-     communicator */
+	/* Find out how many processes there are in the default
+	communicator */
 
-  MPI_Comm_size(MPI_COMM_WORLD, &ntasks);
+	MPI_Comm_size(MPI_COMM_WORLD, &ntasks);
 
-  /* Seed the slaves; send one unit of work to each slave. */
+	/* Seed the slaves; send one unit of work to each slave. */
 
-  for (rank = 1; rank < ntasks; ++rank) {
+	for (rank = 1; rank < ntasks; ++rank)
+	{
 
-    /* Find the next item of work to do */
-	work = pop(jobs);
+		/* Find the next item of work to do */
+		work = pop(jobs);
 
-	/* Send it to each rank */
+		/* Send it to each rank */
 
-	MPI_Send(&work,             /* message buffer */
-			 1,                 /* one data item */
-			 MPI_INT,           /* data item is an integer */
-			 rank,              /* destination process rank */
-			 WORKTAG,           /* user chosen message tag */
-			 MPI_COMM_WORLD);   /* default communicator */
-  }
+		MPI_Send(&work,             /* message buffer */
+		1,                 /* one data item */
+		MPI_INT,           /* data item is an integer */
+		rank,              /* destination process rank */
+		WORKTAG,           /* user chosen message tag */
+		MPI_COMM_WORLD);   /* default communicator */
+	}
 
-  /* Loop over getting new work requests until there is no more work
-     to be done */
+	/* Loop over getting new work requests until there is no more work
+	to be done */
 
-  while (!is_empty(jobs)) {
+	while (!is_empty(jobs))
+	{
 
-    /* Receive results from a slave */
+		/* Receive results from a slave */
 
-    MPI_Recv(&result,           /* message buffer */
-             1,                 /* one data item */
-             MPI_DOUBLE,        /* of type double real */
-             MPI_ANY_SOURCE,    /* receive from any sender */
-             MPI_ANY_TAG,       /* any type of message */
-             MPI_COMM_WORLD,    /* default communicator */
-             &status);          /* info about the received message */
+		MPI_Recv(&result,           /* message buffer */
+		1,                 /* one data item */
+		MPI_DOUBLE,        /* of type double real */
+		MPI_ANY_SOURCE,    /* receive from any sender */
+		MPI_ANY_TAG,       /* any type of message */
+		MPI_COMM_WORLD,    /* default communicator */
+		&status);          /* info about the received message */
 
-    /* Send the slave a new work unit */
-	
-	work = pop(jobs);
+		/* Send the slave a new work unit */
 
-    MPI_Send(&work,             /* message buffer */
-             1,                 /* one data item */
-             MPI_INT,           /* data item is an integer */
-             status.MPI_SOURCE, /* to who we just received from */
-             WORKTAG,           /* user chosen message tag */
-             MPI_COMM_WORLD);   /* default communicator */
+		work = pop(jobs);
 
-  }
+		MPI_Send(&work,             /* message buffer */
+		1,                 /* one data item */
+		MPI_INT,           /* data item is an integer */
+		status.MPI_SOURCE, /* to who we just received from */
+		WORKTAG,           /* user chosen message tag */
+		MPI_COMM_WORLD);   /* default communicator */
 
-  /* There's no more work to be done, so receive all the outstanding
-     results from the slaves. */
+	}
 
-  for (rank = 1; rank < ntasks; ++rank) {
-    MPI_Recv(&result, 1, MPI_DOUBLE, MPI_ANY_SOURCE,
-             MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-  }
+	/* There's no more work to be done, so receive all the outstanding
+	results from the slaves. */
 
-  /* Tell all the slaves to exit by sending an empty message with the
-     DIETAG. */
+	for (rank = 1; rank < ntasks; ++rank)
+	{
+		MPI_Recv(&result, 1, MPI_DOUBLE, MPI_ANY_SOURCE,
+		MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	}
 
-  for (rank = 1; rank < ntasks; ++rank) {
-    MPI_Send(0, 0, MPI_INT, rank, DIETAG, MPI_COMM_WORLD);
-  }
+	/* Tell all the slaves to exit by sending an empty message with the
+	DIETAG. */
+
+	for (rank = 1; rank < ntasks; ++rank)
+	{
+		MPI_Send(0, 0, MPI_INT, rank, DIETAG, MPI_COMM_WORLD);
+	}
 }
 
 
 static void 
 slave(void)
 {
-  unit_of_work_t work;
-  unit_result_t results;
-  MPI_Status status;
+	unit_of_work_t work;
+	unit_result_t results;
+	MPI_Status status;
 
-  while (1) {
+	while (1)
+	{
 
-    /* Receive a message from the master */
+		/* Receive a message from the master */
 
-    MPI_Recv(&work, 1, MPI_INT, 0, MPI_ANY_TAG,
-             MPI_COMM_WORLD, &status);
+		MPI_Recv(&work, 1, MPI_INT, 0, MPI_ANY_TAG,
+		MPI_COMM_WORLD, &status);
 
-    /* Check the tag of the received message. */
+		/* Check the tag of the received message. */
 
-    if (status.MPI_TAG == DIETAG) {
-      return;
-    }
+		if (status.MPI_TAG == DIETAG)
+		{
+			return;
+		}
 
-    /* Do the work */
+		/* Do the work */
 
-    result = do_work(work);
+		// TODO: DEW WERK HEAR!
 
-    /* Send the result back */
+		/* Send the result back */
 
-    MPI_Send(&result, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-  }
-}
-
-
-static unit_of_work_t 
-get_next_work_item(void)
-{
-  /* Fill in with whatever is relevant to obtain a new unit of work
-     suitable to be given to a slave. */
-}
-
-
-static void 
-process_results(unit_result_t result)
-{
-  /* Fill in with whatever is relevant to process the results returned
-     by the slave */
-}
-
-
-static unit_result_t
-do_work(unit_of_work_t work)
-{
-  /* Fill in with whatever is necessary to process the work and
-     generate a result */
+		MPI_Send(&result, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+	}
 }
 
 //////// QUEUE IMPLEMENTATION
