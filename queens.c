@@ -28,8 +28,7 @@ main(int argc, char **argv)
 }
 
 
-static void
-master(void)
+void master()
 {
   int ntasks, rank;
   unit_of_work_t work;
