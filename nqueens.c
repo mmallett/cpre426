@@ -66,7 +66,7 @@ void solve_master(int col, int *hist)
 void solve_slave(int col, int *hist)
 {
 	if (col == N) {
-		char * tmp = (char*) calloc((strlen(out) + N + 1) * sizeof(char));
+		char * tmp = (char*) calloc(strlen(out) + N + 4, sizeof(char));
 		strcpy(tmp, out);
 		free(out);
 		out = tmp;
@@ -214,7 +214,7 @@ void slave()
 	
 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 	
-	out = (char*) calloc((N + 3) * sizeof(char));
+	out = (char*) calloc(N + 4, sizeof(char));
 	
 	while(1)
 	{
