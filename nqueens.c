@@ -135,22 +135,27 @@ void master()
 	int * work;
 	
 	// send everyone some work!
+	int deployed = 0;
 	for(rank = 1; rank < processors; rank++)
 	{
-		work = pop(jobs);
-		
-		MPI_Send(
-			work,
-			K,
-			MPI_INT,
-			rank,
-			WORKTAG,
-			MPI_COMM_WORLD);
+		if(!is_empty(jobs)
+		{
+			work = pop(jobs);
+			
+			MPI_Send(
+				work,
+				K,
+				MPI_INT,
+				rank,
+				WORKTAG,
+				MPI_COMM_WORLD);
+			deployed++;
+		}
 	}
 	
 	// now listen for completions and dispatch work until done!
 	
-	int done[K];
+	int done[K]; //garbage buffer used to match signature
 	
 	while(!is_empty(jobs))
 	{
@@ -180,8 +185,8 @@ void master()
 	}
 	
 	// work is done, receive outstanding jobs
-	
-	for(rank = 1; rank < processors; rank++)
+	// receive outstanding jobs only from the number of machines that received work
+	for(rank = 1; rank <= deployed; rank++)
 	{	
 		MPI_Recv(
 			done,
