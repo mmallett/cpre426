@@ -5,7 +5,7 @@
 
 #include <mpi.h>
 
-static const int N = 8;
+static const int N = 11;
 static const int K = 3;
 
 static const int WORKTAG = 1;
@@ -46,9 +46,6 @@ queue_t * jobs;
 void solve_master(int col, int *hist)
 {
 	if (col == K) {
-		/*printf("QUEUED:");
-		for(int i=0; i<K; i++, printf("%d", hist[i]+1));
-		printf("\n");*/
 		enqueue(jobs, hist);
 		return;
 	}
@@ -89,17 +86,17 @@ void solve_slave(int col, int *hist)
 }
  
 int main(int argc, char **argv)
-{
-	/*
-	if (n <= 1 || (n = atoi(argv[1])) <= 0) n = 8;
-	int hist[N];
-	solve(n, 0, hist);*/
-	
+{	
 	MPI_Init(&argc, &argv);
 	
 	int rank;
 	
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
+	double start, end;
+	
+	MPI_Barrier(MPI_COMM_WORLD);
+	start = MPI_Wtime();
 	
 	if(rank == 0)
 	{
@@ -109,6 +106,16 @@ int main(int argc, char **argv)
 	{
 		slave();
 	}
+	
+	MPI_Barrier(MPI_COMM_WORLD);
+	end = MPI_Wtime();
+	
+	if(rank == 0)
+	{
+		printf("RUNTIME %lf ms\n", (end - start) * 1000);
+	}
+	
+	MPI_Finalize();
 }
 
 void master()
@@ -234,12 +241,6 @@ void slave()
 		}
 		
 		memcpy(hist, work, K * sizeof(int));
-		
-		/*
-		printf("RECEIVED @ %d:", myrank);
-		for(int i=0; i<K; i++, printf("%d", hist[i] +1));
-		printf("\n");
-		*/
 		
 		solve_slave(K, hist);
 		
