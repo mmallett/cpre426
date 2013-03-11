@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <string.h>
+//memcpy
+
 #define K 3
 
 typedef struct node
@@ -37,7 +40,7 @@ void enqueue(queue_t * q, int * data)
 {
 	node_t * new_node = (node_t *) malloc(sizeof(node_t));
 	//new_node -> data = data;
-	memcpy(new_node -> data, data, K);
+	memcpy(new_node -> data, data, K * sizeof(int));
 	new_node -> next = NULL;
 	if(is_empty(q))
 	{
@@ -63,7 +66,7 @@ int * pop(queue_t * q)
 	{
 		node_t * popped = q -> head;
 		int * ret =  (int*) malloc(K * sizeof(int));
-		memcpy(ret, popped -> data, K);
+		memcpy(ret, popped -> data, K * sizeof(int));
 		q -> head = popped -> next;
 		free(popped);
 		(q -> size) --;
@@ -78,8 +81,11 @@ int * pop(queue_t * q)
 int main()
 {
 	int a[] = {1,2,3};
+	printf("%d %d %d\n", a[0], a[1], a[2]);
 	int b[] = {9000,9001,9002};
+	printf("%d %d %d\n", b[0], b[1], b[2]);
 	int c[] = {1000,2000,1500};
+	printf("%d %d %d\n", c[0], c[1], c[2]);
 	
 	queue_t * qt = init_queue();
 	
