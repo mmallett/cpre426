@@ -138,7 +138,7 @@ void master()
 	int deployed = 0;
 	for(rank = 1; rank < processors; rank++)
 	{
-		if(!is_empty(jobs)
+		if(!is_empty(jobs))
 		{
 			work = pop(jobs);
 			
