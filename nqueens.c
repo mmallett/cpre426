@@ -5,7 +5,7 @@
 
 #include <mpi.h>
 
-static const int N = 11;
+static const int N = 8;
 static const int K = 3;
 
 static const int WORKTAG = 1;
