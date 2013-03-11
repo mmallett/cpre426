@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <string.h>
+
 #include <mpi.h>
 
 static const int N = 8;
@@ -11,6 +13,8 @@ static const int DIETAG = 2;
 
 void master();
 void slave();
+
+char * out;
 
 //////// QUEUE DEFINITIONS
 
@@ -39,24 +43,19 @@ queue_t * jobs;
 
 //////// END QUEUE
  
-//int count = 0;
 void solve_master(int col, int *hist)
 {
 	if (col == K) {
-		/*printf("\nNo. %d\n-----\n", ++count);
-		for (int i = 0; i < n; i++, putchar('\n'))
-			for (int j = 0; j < n; j++)
-				putchar(j == hist[i] ? 'Q' : ((i + j) & 1) ? ' ' : '.');*/
-		printf("QUEUED:");
+		/*printf("QUEUED:");
 		for(int i=0; i<K; i++, printf("%d", hist[i]+1));
-		printf("\n");
+		printf("\n");*/
 		enqueue(jobs, hist);
 		return;
 	}
  
 #	define attack(i, j) (hist[j] == i || abs(hist[j] - i) == col - j)
 	for (int i = 0, j = 0; i < N; i++) { //for each row
-		for (j = 0; j < col && !attack(i, j); j++); //for each column before the current, 
+		for (j = 0; j < col && !attack(i, j); j++);
 		if (j < col) continue;
  
 		hist[col] = i;
@@ -67,15 +66,15 @@ void solve_master(int col, int *hist)
 void solve_slave(int col, int *hist)
 {
 	if (col == N) {
-		/*printf("\nNo. %d\n-----\n", ++count);
-		for (int i = 0; i < n; i++, putchar('\n'))
-			for (int j = 0; j < n; j++)
-				putchar(j == hist[i] ? 'Q' : ((i + j) & 1) ? ' ' : '.');*/
+		char * tmp = (char*) calloc((strlen(out) + N + 1) * sizeof(char));
+		strcpy(tmp, out);
+		free(out);
+		out = tmp;
 		for(int i=0; i<N; i++)
 		{
-			printf("%d", hist[i]+1);
+			sprintf(out, "%s%d", out, hist[i]+1);
 		}
-		printf("\n");
+		sprintf(out, "%s\n", out);
 		return;
 	}
  
@@ -215,6 +214,8 @@ void slave()
 	
 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 	
+	out = (char*) calloc((N + 3) * sizeof(char));
+	
 	while(1)
 	{
 		MPI_Recv(
@@ -228,14 +229,17 @@ void slave()
 			
 		if(status.MPI_TAG == DIETAG)
 		{
+			printf("%s", out);
 			return;
 		}
 		
-		memcpy(hist, work, K);
+		memcpy(hist, work, K * sizeof(int));
 		
+		/*
 		printf("RECEIVED @ %d:", myrank);
 		for(int i=0; i<K; i++, printf("%d", hist[i] +1));
 		printf("\n");
+		*/
 		
 		solve_slave(K, hist);
 		
