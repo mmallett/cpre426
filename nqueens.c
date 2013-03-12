@@ -1,3 +1,17 @@
+/********************************************************
+Matt Mallett, Deven Starn
+CprE 426 Programming Assignment 1
+
+nqueens.c
+Finds all solutions to the n-queens problem utilizing mpi
+
+Sources
+http://www.lam-mpi.org/tutorials/one-step/ezstart.php
+	Skeleton master slave code for MPI
+http://rosettacode.org/wiki/N-queens_problem#C
+	Serial n-queens solution
+********************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -5,15 +19,20 @@
 
 #include <mpi.h>
 
+
+//problem size definitions
 static const int N = 8;
 static const int K = 3;
 
+//define tags for mpi communication
 static const int WORKTAG = 1;
 static const int DIETAG = 2;
 
+//define methods for different processors
 void master();
 void slave();
 
+//an outbuffer used by slaves
 char * out;
 
 //////// QUEUE DEFINITIONS
@@ -43,26 +62,35 @@ queue_t * jobs;
 
 //////// END QUEUE
  
+/*
+invoked by the master to solve find all solutions
+of the first k columns
+solutions are put onto the jobs queue
+*/
 void solve_master(int col, int *hist)
 {
 	if (col == K) {
-		enqueue(jobs, hist);
+		enqueue(jobs, hist); //found a k length solution, throw it on the queue
 		return;
 	}
  
 #	define attack(i, j) (hist[j] == i || abs(hist[j] - i) == col - j)
 	for (int i = 0, j = 0; i < N; i++) { //for each row
-		for (j = 0; j < col && !attack(i, j); j++);
+		for (j = 0; j < col && !attack(i, j); j++); //if this piece is safe, move to the next column
 		if (j < col) continue;
  
-		hist[col] = i;
+		hist[col] = i; //this row is safe for the current column
 		solve_master(col + 1, hist);
 	}
 }
 
+/*
+invoked by slaves to complete a solution of length k
+valid solutions are formatted, then put into an output buffer
+*/
 void solve_slave(int col, int *hist)
 {
-	if (col == N) {
+	if (col == N) { //found valid solution, output it
 		char * tmp = (char*) calloc(strlen(out) + N + 4, sizeof(char));
 		strcpy(tmp, out);
 		free(out);
@@ -76,17 +104,18 @@ void solve_slave(int col, int *hist)
 	}
  
 #	define attack(i, j) (hist[j] == i || abs(hist[j] - i) == col - j)
-	for (int i = 0, j = 0; i < N; i++) {
-		for (j = 0; j < col && !attack(i, j); j++);
+	for (int i = 0, j = 0; i < N; i++) { //for each row
+		for (j = 0; j < col && !attack(i, j); j++); //if this piece is safe, move to next column
 		if (j < col) continue;
  
-		hist[col] = i;
+		hist[col] = i; // this row is safe for the current column
 		solve_slave(col + 1, hist);
 	}
 }
  
 int main(int argc, char **argv)
 {	
+	//mpi logistics
 	MPI_Init(&argc, &argv);
 	
 	int rank;
@@ -98,6 +127,7 @@ int main(int argc, char **argv)
 	MPI_Barrier(MPI_COMM_WORLD);
 	start = MPI_Wtime();
 	
+	//take on master or slave role based on ranks
 	if(rank == 0)
 	{
 		master();
@@ -110,17 +140,19 @@ int main(int argc, char **argv)
 	MPI_Barrier(MPI_COMM_WORLD);
 	end = MPI_Wtime();
 	
+	//master prints runtime
 	if(rank == 0)
 	{
 		printf("RUNTIME %lf ms\n", (end - start) * 1000);
 	}
 	
+	//done!
 	MPI_Finalize();
 }
 
 void master()
 {
-
+	
 	jobs = init_queue();
 	MPI_Status status;
 
@@ -135,6 +167,7 @@ void master()
 	int * work;
 	
 	// send everyone some work!
+	// keep track of how many nodes received work
 	int deployed = 0;
 	for(rank = 1; rank < processors; rank++)
 	{
@@ -230,6 +263,7 @@ void slave()
 	
 	while(1)
 	{
+		// get a message from the master
 		MPI_Recv(
 			&work,
 			K,
@@ -239,18 +273,21 @@ void slave()
 			MPI_COMM_WORLD,
 			&status);
 			
+		// check if everything is done
 		if(status.MPI_TAG == DIETAG)
 		{
 			printf("%s", out);
 			return;
 		}
 		
+		// run the job received from master
 		memcpy(hist, work, K * sizeof(int));
 		
 		solve_slave(K, hist);
 		
 		int something = 1;
 		
+		// check in completed job to master
 		MPI_Send(
 			&something,
 			1,
@@ -264,6 +301,9 @@ void slave()
 
 //////// QUEUE IMPLEMENTATION
 
+/*
+creates a new, empty queue and retuns a pointer to this quue
+*/
 queue_t * init_queue()
 {
 	queue_t * ret = (queue_t *) malloc(sizeof(queue_t));
@@ -273,10 +313,12 @@ queue_t * init_queue()
 	return ret;
 }
 
+/*
+add the data vector to the back of the queue
+*/
 void enqueue(queue_t * q, int * data)
 {
 	node_t * new_node = (node_t *) malloc(sizeof(node_t));
-	//new_node -> data = data;
 	memcpy(new_node -> data, data, K * sizeof(int));
 	new_node -> next = NULL;
 	if(is_empty(q))
@@ -292,11 +334,22 @@ void enqueue(queue_t * q, int * data)
 	(q -> size) ++;
 }
 
+/*
+returns
+1 if the queue is empty
+0 if it is not empty
+*/
 int is_empty(queue_t * q)
 {
 	return q -> size <= 0;
 }
 
+/*
+pops the data at the front of the queue, removing it and updating the queue
+accordingly
+unconditionally returns 0 if the queue is empty. is_empty should be called 
+to check for this
+*/
 int * pop(queue_t * q)
 {
 	if( q -> size > 0)
