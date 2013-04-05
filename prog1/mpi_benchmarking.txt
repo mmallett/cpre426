@@ -1,0 +1,62 @@
+echo p:4 k:1
+mpirun -np 4 nqueen_n8k1 | grep RUNTIME
+echo p:4 k:2
+mpirun -np 4 nqueen_n8k2 | grep RUNTIME
+echo p:4 k:3
+mpirun -np 4 nqueen_n8k3 | grep RUNTIME
+echo p:4 k:4
+mpirun -np 4 nqueen_n8k4 | grep RUNTIME
+echo p:4 k:5
+mpirun -np 4 nqueen_n8k5 | grep RUNTIME
+echo p:4 k:6
+mpirun -np 4 nqueen_n8k6 | grep RUNTIME
+echo p:4 k:7
+mpirun -np 4 nqueen_n8k7 | grep RUNTIME
+echo
+
+echo p:8 k:1
+mpirun -np 8 nqueen_n8k1 | grep RUNTIME
+echo p:8 k:2
+mpirun -np 8 nqueen_n8k2 | grep RUNTIME
+echo p:8 k:3
+mpirun -np 8 nqueen_n8k3 | grep RUNTIME
+echo p:8 k:4
+mpirun -np 8 nqueen_n8k4 | grep RUNTIME
+echo p:8 k:5
+mpirun -np 8 nqueen_n8k5 | grep RUNTIME
+echo p:8 k:6
+mpirun -np 8 nqueen_n8k6 | grep RUNTIME
+echo p:8 k:7
+mpirun -np 8 nqueen_n8k7 | grep RUNTIME
+echo
+
+echo p:16 k:1
+mpirun -np 16 nqueen_n8k1 | grep RUNTIME
+echo p:16 k:2
+mpirun -np 16 nqueen_n8k2 | grep RUNTIME
+echo p:16 k:3
+mpirun -np 16 nqueen_n8k3 | grep RUNTIME
+echo p:16 k:4
+mpirun -np 16 nqueen_n8k4 | grep RUNTIME
+echo p:16 k:5
+mpirun -np 16 nqueen_n8k5 | grep RUNTIME
+echo p:16 k:6
+mpirun -np 16 nqueen_n8k6 | grep RUNTIME
+echo p:16 k:7
+mpirun -np 16 nqueen_n8k7 | grep RUNTIME
+echo
+
+echo p:32 k:1
+mpirun -np 32 nqueen_n8k1 | grep RUNTIME
+echo p:32 k:2
+mpirun -np 32 nqueen_n8k2 | grep RUNTIME
+echo p:32 k:3
+mpirun -np 32 nqueen_n8k3 | grep RUNTIME
+echo p:32 k:4
+mpirun -np 32 nqueen_n8k4 | grep RUNTIME
+echo p:32 k:5
+mpirun -np 32 nqueen_n8k5 | grep RUNTIME
+echo p:32 k:6
+mpirun -np 32 nqueen_n8k6 | grep RUNTIME
+echo p:32 k:7
+mpirun -np 32 nqueen_n8k7 | grep RUNTIME
