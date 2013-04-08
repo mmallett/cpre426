@@ -21,9 +21,12 @@ int main(int argc, char ** argv)
 	int world_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
+	//variables holding state of processor's share of data
 	int * data;
 	int * send_data;
 	int data_size;
+	
+	int m; //problem size
 
 	if(world_rank == 0)
 	{	
@@ -37,28 +40,37 @@ int main(int argc, char ** argv)
 			exit(EXIT_FAILURE);
 		}
 		
-		int n;
-		fscanf(fp, "%d\n", &n);
-		printf("%d elements\n", n);	
+		int m;
+		fscanf(fp, "%d\n", &m);
+		//printf("%d elements\n", n);	
 
 		int i;
-		data_size = n/world_size + (n%world_size > 0); //super nooblol
+		data_size = m/world_size + (m%world_size > 0);
 		int buff_size = world_size * data_size;
 		send_data = (int*) malloc(buff_size *sizeof(int));
 
 		//fill buffer with data from file		
-		for(i=0; i<n; i++)
+		for(i=0; i<m; i++)
 		{
 			fscanf(fp, "%d\n", &send_data[i]);
-			//printf("%d\n", send_data[i]);
 		}
 		//fill remainder of buffer, gives each processor same buffer size
-		for(i=n; i<buff_size; i++)
+		for(i=m; i<buff_size; i++)
 		{
 			send_data[i] = BIG;
 		}
 			
 	}
+	
+	//broadcast problem size .. might not be needed we will see
+	MPI_Bcast
+	(
+		&m,
+		1,
+		MPI_INT,
+		0,
+		MPI_COMM_WORLD
+	);
 
 	//broadcast size of incound data buffer
 	MPI_Bcast
@@ -85,32 +97,28 @@ int main(int argc, char ** argv)
 		MPI_COMM_WORLD
 	);
 	
-	int i;
-	for(i=0; i<data_size; i++)
-	{
-		printf("%d has %d\n", world_rank, data[i]);
-	}	
+	///////////////////////////////////////////////////////////////
+	// DATA DISTRIBUTED
+	// PARTITION NOW
+	///////////////////////////////////////////////////////////////
 	
-	MPI_Finalize();
-	return 0;
-}
-
-int main(int argc, char** argv)
+/*int main(int argc, char** argv)
 {
         MPI_Init(&argc, &argv);
         MPI_Comm comm;
-        int tosort[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-        int m = sizeof(tosort) / sizeof(tosort[0]);
+        int tosort[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};*/
+        //int m = sizeof(tosort) / sizeof(tosort[0]);
         //Get the size of the comm
-        int q;
-        MPI_Comm_size(comm, &q);
+        int q = world_size;
+        //MPI_Comm_size(comm, &q);
         int color_id = 0;
 
-        if(q == 1){
+		while(q > 1){
+        /*if(q == 1){
                 //Sort serially.
                 //Print to file.
-        }
-        else {
+        }*/
+        //else {
                 //1. If q>1 all processors in the communicator use the same random number
                 //   generator to generate a random number between 0 and m-1, say k.
 
