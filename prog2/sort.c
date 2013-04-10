@@ -9,7 +9,19 @@ parallelized quicksort via MPI
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
 #include <mpi.h>
+
+/*
+>>>>>>>>>>>>>>>>>>>>>>>>>>>CHANGE THESE<<<<<<<<<<<<<<<<<<<<<<<<<<<
+*/
+static const char IN_PATH[] = "/home/mmallett/cpre426/prog2/in.txt"; //path to input file
+static const char OUT_PATH[] = "/home/mmallett/cpre426/prog2/out/"; //path to directory where output will go
+//note this ends in a /
+/*
+>>>>>>>>>>>>>>>>>>>>>>>>>>>CHANGE THESE<<<<<<<<<<<<<<<<<<<<<<<<<<<
+*/
 
 int main(int argc, char ** argv){
 	MPI_Init(&argc, &argv);
@@ -28,7 +40,7 @@ int main(int argc, char ** argv){
 
 	if(world_rank == 0){
 		FILE * fp;
-		fp = fopen("/home/mmallett/cpre426/prog2/in.txt", "r");
+		fp = fopen(IN_PATH, "r");
 
 		if(fp == NULL){
 			perror("Could not open file");
@@ -310,8 +322,65 @@ int main(int argc, char ** argv){
 		}
 	}
 
+	char path_buffer[50];
+	strcpy(path_buffer, OUT_PATH);
+	sprintf(path_buffer, "%spart%d.txt", path_buffer, world_rank);
+	
 	FILE * out;
-	out=fopen("/home/mmallett/cpre426/prog2
+	out=fopen(path_buffer, "w");
+	
+	if(out == NULL){
+			perror("Could not open file");
+			exit(EXIT_FAILURE);
+	}
+	
+	for(i=0; i<data_length-1; i++){
+		fprintf(out, "%d\n", data[i]);
+	}
+	
+	fclose(out);
+	
+	MPI_Barrier(MPI_COMM_WORLD);
+	
+	if(world_rank == 0){
+		strcpy(path_buffer, OUT_PATH);
+		sprintf(path_buffer, "%ssorted.txt", path_buffer);
+		
+		out = fopen(path_buffer, "w");
+		
+		if(out == NULL){
+			perror("Could not open file");
+			exit(EXIT_FAILURE);
+		}
+		
+		for(i=0; i<world_size; i++){
+			strcpy(path_buffer, OUT_PATH);
+			sprintf(path_buffer, "%spart%d.txt", path_buffer, i);
+			
+			FILE * readin;
+			readin = fopen(path_buffer, "r");
+			
+			if(readin == NULL){
+				fprintf(out, "part %d could not be read\n", i);
+				continue;
+			}
+			
+			//read in write to sorted.txt
+			int c;
+			while((c = fgetc(file)) != EOF){
+				fputc(c, out);
+			}
+			
+			fclose(readin);
+		}
+		
+		fclose(out);
+	}
+	
+	MPI_Finalize();
+	return 0;
+}
+			
 	 
 
 
