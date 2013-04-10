@@ -1,0 +1,48 @@
+get world rank
+	world size
+
+p0 read file from disk
+scatterv
+	-send n/world size data to each processor
+	-keep n/world size + n%world size
+	
+m=n
+comm=dup(world)
+q=world size
+
+while(q > 1)
+	k = rank()%m-1
+	sizes = allgather(buffer sizes)
+	calculate prefix sums
+	bcast(k, root is proc w/ k)
+		--all can calculate this now
+		
+	partition array around k
+	keep track of m' m'' size
+	
+	allgather for m' total
+		calculate m'' as m - m'
+		
+	available = commsize - 2
+	left = (m'/m)*available + 1
+	right = commsize - left
+	
+	color = rank < left
+	nrank = (color) ? rank : rank - left
+	
+	set indeces in array based on m' m''
+	calculate buffer sizes for each processor
+	
+	alltoall -> buffer sizes
+	alltoallv -> array, use buffer sizes received
+	
+	commsplit(comm, color, nrank, newcomm)
+	free(comm)
+	comm = &newcomm
+// end while
+
+sort my array serially
+
+print my array to file out/part[world rank]
+
+processor 0 stitch together part0 part1 part2 ... partp-1
