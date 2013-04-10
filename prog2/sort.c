@@ -321,7 +321,12 @@ int main(int argc, char ** argv){
 			data[min] = tmp;
 		}
 	}
-
+	
+	///////////////////////////////////////////////////////
+	// END SORTING
+	// BEGIN OUTPUT SECTION
+	///////////////////////////////////////////////////////
+	
 	char path_buffer[50];
 	strcpy(path_buffer, OUT_PATH);
 	sprintf(path_buffer, "%spart%d.txt", path_buffer, world_rank);
