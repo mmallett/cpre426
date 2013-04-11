@@ -149,19 +149,11 @@ int main(int argc, char ** argv){
 
 		int i;
 		int data_length_total = sizes[0];
-<<<<<<< HEAD
 		int has_k = 0;
 		for(i=1; i<q; i++){
 			data_length_total += sizes[i];
 			sizes[i] += sizes[i-1];
 			if(k >= sizes[i-1] && k < sizes[i]){
-=======
-		int has_k;
-		for(i=1; i<q; i++){
-			data_length_total += sizes[i];
-			sizes[i] += sizes[i-1];
-			if(k < sizes[i-1] && k >= sizes[i]){
->>>>>>> fb0e0daefb42e67038d90ec7c6b08dab0723b197
 				has_k = i;
 			}
 		}
@@ -380,11 +372,7 @@ int main(int argc, char ** argv){
 			
 			//read in write to sorted.txt
 			int c;
-<<<<<<< HEAD
 			while((c = fgetc(readin)) != EOF){
-=======
-			while((c = fgetc(file)) != EOF){
->>>>>>> fb0e0daefb42e67038d90ec7c6b08dab0723b197
 				fputc(c, out);
 			}
 			
