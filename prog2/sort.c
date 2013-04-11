@@ -88,7 +88,7 @@ int main(int argc, char ** argv){
 		MPI_COMM_WORLD
 	);
 
-	rec_data = (int*) calloc(rec_cnt, sizeof(int));
+	rec_data = (int*) malloc(rec_cnt * sizeof(int));
 
 	//scatter data to processors
 	MPI_Scatterv(
@@ -127,6 +127,13 @@ int main(int argc, char ** argv){
 	MPI_Comm comm;
 	MPI_Comm_dup(MPI_COMM_WORLD, &comm);
 
+	printf("[%d] %d items: ", world_rank, data_length);
+        int z;
+        for(z=0; z<data_length; z++){
+                printf("%d ", data[z]);
+        }
+        printf("\n");
+
 	srand(18);
 
 	while(q>1){
@@ -135,17 +142,25 @@ int main(int argc, char ** argv){
 		
 		//figure out who has the kth integer
 		int k = rand()%(m-1);
+
+		printf("[%d] k:%d m:%d\n", world_rank, k, m);
 		
-		int * sizes = (int*) calloc(q, sizeof(int));
+		int * sizes = (int*) malloc(q * sizeof(int));
 		MPI_Allgather(
 			&data_length,
 			1,
 			MPI_INT,
 			sizes,
-			q,
+			1,
 			MPI_INT,
 			comm
 		);
+
+		printf("[%d] allgather sizes: ", world_rank);
+		for(z=0; z<q; z++){
+			printf("%d ", sizes[z]);
+		}
+		printf("\n");
 
 		int i;
 		int data_length_total = sizes[0];
@@ -157,6 +172,13 @@ int main(int argc, char ** argv){
 				has_k = i;
 			}
 		}
+
+		printf("[%d] proc offsets: ", world_rank);
+		for(z=0; z<q; z++){
+			printf("%d ", sizes[z]);
+		}
+		printf("\n");
+		printf("[%d] proc w/ k:%d\n", world_rank, has_k);
 
 		int k_val;
 		if(has_k == rank){
@@ -176,12 +198,14 @@ int main(int argc, char ** argv){
 			has_k,
 			comm
 		);
+
+		printf("[%d] k value:%d\n", world_rank, k_val);
 			
 		//partition data around k
 		int left = 0, right = data_length-1;
 		while(left < right){
-			while(data[left] <= k_val) left++;
-			while(data[right] > k_val) right--;
+			while(left <= right && data[left] <= k_val) left++;
+			while(left < right && data[right] > k_val) right--;
 			if(left < right){//swap
 				int tmp = data[left];
 				data[left] = data[right];
@@ -189,17 +213,25 @@ int main(int argc, char ** argv){
 			}
 		}
 
+		printf("[%d] partitioned: ", world_rank);
+		for(z=0; z<data_length; z++){
+			printf("%d ", data[z]);
+		}
+		printf("\n");
+
 		int left_size = right;
 		int right_size = data_length - right;
 
-		int * left_sizes = (int*) calloc(q, sizeof(int));
+		printf("[%d] sizes L:%d R:%d\n", world_rank, left_size, right_size);
+
+		int * left_sizes = (int*) malloc(q * sizeof(int));
 	
 		MPI_Allgather(
 			&left_size,
 			1,
 			MPI_INT,
 			left_sizes,
-			q,
+			1,
 			MPI_INT,
 			comm
 		);
@@ -208,18 +240,22 @@ int main(int argc, char ** argv){
 		for(i=0; i<q; i++){
 			left_total += left_sizes[i];
 		}
-		int right_total = data_length - left_total;
+		int right_total = data_length_total - left_total;
+
+		printf("[%d] totals L:%d R:%d\n", world_rank, left_total, right_total);
 
 		//allocate processors to the 2 partitions
 		int available = q - 2;
 		int left_group_size = (left_total/data_length)*available + 1;
 		int right_group_size = q - left_group_size;
 
+		printf("[%d] allocated L:%d R:%d\n", world_rank, left_group_size, right_group_size);
+
 		//split up buffer for distribution
 		free(send_cnt);
 		free(send_disp);
-		send_cnt = (int*) calloc(q, sizeof(int));
-		send_disp = (int*) calloc(q, sizeof(int));
+		send_cnt = (int*) malloc(q * sizeof(int));
+		send_disp = (int*) malloc(q * sizeof(int));
 
 		int left_buff_size = left_size/left_group_size;
 		for(i=0; i<left_group_size; i++){
@@ -231,15 +267,27 @@ int main(int argc, char ** argv){
 		for(i=left_group_size; i<q; i++){
 			send_cnt[i] = right_buff_size;
 		}
-		send_cnt[q-1] += right_size/right_group_size;
+		send_cnt[q-1] += right_size%right_group_size;
+
+		printf("[%d] send counts: ", world_rank);
+		for(z=0; z<q; z++){
+			printf("%d ", send_cnt[z]);
+		}
+		printf("\n");
 
 		send_disp[0] = 0;
 		for(i=1; i<q; i++){
 			send_disp[i] = send_disp[i-1] + send_cnt[i-1];
 		}
+		
+		printf("[%d] displacements: ", world_rank);
+		for(z=0; z<q; z++){
+			printf("%d ", send_disp[z]);
+		}
+		printf("\n");
 
 		//send the vector sizes
-		int * recv_cnt = (int*) calloc(q, sizeof(int));
+		int * recv_cnt = (int*) malloc(q * sizeof(int));
 		MPI_Alltoall(
 			send_cnt,
 			1,
@@ -249,10 +297,16 @@ int main(int argc, char ** argv){
 			MPI_INT,
 			comm
 		);
+
+		printf("[%d] recv counts: ", world_rank);
+		for(z=0; z<q; z++){
+			printf("%d ", recv_cnt[z]);
+		}
+		printf("\n");
 		
 		//prepare arguments
 		int total_inc_size = 0;
-		int * recv_disp = (int*) calloc(q, sizeof(int));
+		int * recv_disp = (int*) malloc(q * sizeof(int));
 		for(i=0; i<q; i++){
 			total_inc_size += recv_cnt[i];
 		}
@@ -261,7 +315,13 @@ int main(int argc, char ** argv){
 			recv_disp[i] = recv_disp[i-1] + recv_cnt[i-1];
 		}
 
-		rec_data = (int*) calloc(total_inc_size, sizeof(int));
+		printf("[%d] recv displacements: ", world_rank);
+		for(z=0; z<q; z++){
+			printf("%d ", recv_disp[z]);
+		}
+		printf("\n");
+
+		rec_data = (int*) malloc(total_inc_size * sizeof(int));
 
 		//send the data!
 		MPI_Alltoallv(
@@ -276,10 +336,22 @@ int main(int argc, char ** argv){
 			comm
 		);
 
+		printf("[%d] received %d elements: ", world_rank, total_inc_size);
+		for(z=0; z<total_inc_size; z++){
+			printf("%d ", rec_data[z]);
+		}
+		printf("\n");
+
 		//housekeeping
 		free(data);
 		data = rec_data;
 		data_length = total_inc_size;
+
+		printf("[%d] survived transfer: ", world_rank);
+		for(z=0; z<data_length; z++){
+			printf("%d ", rec_data[z]);
+		}
+		printf("\n");
 
 		free(recv_cnt);
 		free(recv_disp);
@@ -298,6 +370,8 @@ int main(int argc, char ** argv){
 		comm = new_comm;
 
 		MPI_Comm_size(comm, &q);
+
+		printf("[%d] color:%d rank:%d size:%d\n", world_rank, color, new_rank, q);
 	}//end while
 
 	///////////////////////////////////////////////////////
@@ -305,7 +379,7 @@ int main(int argc, char ** argv){
 	// BEGIN SERIAL SORT
 	///////////////////////////////////////////////////////
 
-	//COMMENCE LOLBADSORT
+	//SELECTION SORT LAIKA BOSS
 	int i,j,min;
 	for(j=0; j<data_length-1; j++){
 		min=j;
@@ -339,13 +413,15 @@ int main(int argc, char ** argv){
 			exit(EXIT_FAILURE);
 	}
 	
-	for(i=0; i<data_length-1; i++){
+	for(i=0; i<data_length; i++){
 		fprintf(out, "%d\n", data[i]);
 	}
 	
 	fclose(out);
 	
+	//printf("[%d] sum barry urz!\n", world_rank);
 	MPI_Barrier(MPI_COMM_WORLD);
+	//printf("[%d] de r dun wit\n", world_rank);
 	
 	if(world_rank == 0){
 		strcpy(path_buffer, OUT_PATH);
