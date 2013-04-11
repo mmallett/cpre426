@@ -18,7 +18,8 @@ parallelized quicksort via MPI
 */
 static const char IN_PATH[] = "/home/mmallett/cpre426/prog2/in.txt"; //path to input file
 static const char OUT_PATH[] = "/home/mmallett/cpre426/prog2/out/"; //path to directory where output will go
-//note this ends in a /
+//NOTE THIS PATH ENDS IN A /
+//THIS DIRECTORY MUST EXIST, WE DON'T CREATE IT FOR YOU
 /*
 >>>>>>>>>>>>>>>>>>>>>>>>>>>CHANGE THESE<<<<<<<<<<<<<<<<<<<<<<<<<<<
 */
@@ -246,7 +247,7 @@ int main(int argc, char ** argv){
 
 		//allocate processors to the 2 partitions
 		int available = q - 2;
-		int left_group_size = (left_total/data_length)*available + 1;
+		int left_group_size = (left_total/data_length_total)*available + 1;
 		int right_group_size = q - left_group_size;
 
 		printf("[%d] allocated L:%d R:%d\n", world_rank, left_group_size, right_group_size);
@@ -346,12 +347,6 @@ int main(int argc, char ** argv){
 		free(data);
 		data = rec_data;
 		data_length = total_inc_size;
-
-		printf("[%d] survived transfer: ", world_rank);
-		for(z=0; z<data_length; z++){
-			printf("%d ", rec_data[z]);
-		}
-		printf("\n");
 
 		free(recv_cnt);
 		free(recv_disp);
