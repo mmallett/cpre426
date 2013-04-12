@@ -17,12 +17,17 @@ parallelized quicksort via MPI
 >>>>>>>>>>>>>>>>>>>>>>>>>>>CHANGE THESE<<<<<<<<<<<<<<<<<<<<<<<<<<<
 */
 static const char IN_PATH[] = "/home/mmallett/cpre426/prog2/in.txt"; //path to input file
-static const char OUT_PATH[] = "/home/mmallett/cpre426/prog2/out/"; //path to directory where output will go
+static const char OUT_PATH[] = "/home/mmallett/cpre426/prog2/out/";
+//path to directory where output will go
 //NOTE THIS PATH ENDS IN A /
 //THIS DIRECTORY MUST EXIST, WE DON'T CREATE IT FOR YOU
+static const int DEBUG = 0; // CHANGE TO 0 TO SQUELCH LOGS
+static const char DEBUG_PATH[] = "/home/mmallett/cpre426/prog2/debug/";
 /*
 >>>>>>>>>>>>>>>>>>>>>>>>>>>CHANGE THESE<<<<<<<<<<<<<<<<<<<<<<<<<<<
 */
+
+double start_time, end_time;
 
 int main(int argc, char ** argv){
 	MPI_Init(&argc, &argv);
@@ -76,6 +81,9 @@ int main(int argc, char ** argv){
 			send_disp[i] = send_disp[i-1]+send_cnt[i-1];
 		}
 	}
+	
+	MPI_Barrier(MPI_COMM_WORLD);
+	start_time = MPI_Wtime();
 
 	//scatter incoming vector sizes to processors
 	MPI_Scatter(
@@ -128,14 +136,25 @@ int main(int argc, char ** argv){
 	MPI_Comm comm;
 	MPI_Comm_dup(MPI_COMM_WORLD, &comm);
 
-	printf("[%d] %d items: ", world_rank, data_length);
-        int z;
+	int z;
+	/*printf("[%d] %d items: ", world_rank, data_length);
         for(z=0; z<data_length; z++){
                 printf("%d ", data[z]);
         }
-        printf("\n");
+        printf("\n");*/
 
-	srand(18);
+	FILE * fdebug;
+	char debugbuf[100];
+	int debug_good = 0;
+	if(DEBUG){
+		strcpy(debugbuf,DEBUG_PATH);
+		sprintf(debugbuf,"%sproc%d", debugbuf, world_rank);
+		fdebug = fopen(debugbuf, "w");
+		debug_good = (fdebug != NULL) && DEBUG;
+	}
+
+	int seed = 18;
+	srand(seed);
 
 	while(q>1){
 		int rank;
@@ -144,7 +163,9 @@ int main(int argc, char ** argv){
 		//figure out who has the kth integer
 		int k = rand()%(m-1);
 
-		printf("[%d] k:%d m:%d\n", world_rank, k, m);
+		if(debug_good){
+			fprintf(fdebug,"[%d] k:%d\n", world_rank, k);
+		}
 		
 		int * sizes = (int*) malloc(q * sizeof(int));
 		MPI_Allgather(
@@ -157,11 +178,13 @@ int main(int argc, char ** argv){
 			comm
 		);
 
-		printf("[%d] allgather sizes: ", world_rank);
-		for(z=0; z<q; z++){
-			printf("%d ", sizes[z]);
+		if(debug_good){
+			fprintf(fdebug,"[%d] allgather sizes: ", world_rank);
+			for(z=0; z<q; z++){
+				fprintf(fdebug,"%d ", sizes[z]);
+			}
+			fprintf(fdebug,"\n");
 		}
-		printf("\n");
 
 		int i;
 		int data_length_total = sizes[0];
@@ -174,12 +197,14 @@ int main(int argc, char ** argv){
 			}
 		}
 
-		printf("[%d] proc offsets: ", world_rank);
-		for(z=0; z<q; z++){
-			printf("%d ", sizes[z]);
+		if(debug_good){
+			fprintf(fdebug, "[%d] proc offsets: ", world_rank);
+			for(z=0; z<q; z++){
+				fprintf(fdebug, "%d ", sizes[z]);
+			}
+			fprintf(fdebug, "\n");
+			fprintf(fdebug, "[%d] proc w/ k:%d\n", world_rank, has_k);
 		}
-		printf("\n");
-		printf("[%d] proc w/ k:%d\n", world_rank, has_k);
 
 		int k_val;
 		if(has_k == rank){
@@ -200,7 +225,9 @@ int main(int argc, char ** argv){
 			comm
 		);
 
-		printf("[%d] k value:%d\n", world_rank, k_val);
+		if(debug_good){
+			fprintf(fdebug, "[%d] k value:%d\n", world_rank, k_val);
+		}
 			
 		//partition data around k
 		int left = 0, right = data_length-1;
@@ -214,16 +241,19 @@ int main(int argc, char ** argv){
 			}
 		}
 
-		printf("[%d] partitioned: ", world_rank);
+		/*printf("[%d] partitioned: ", world_rank);
 		for(z=0; z<data_length; z++){
 			printf("%d ", data[z]);
 		}
-		printf("\n");
+		printf("\n");*/
 
 		int left_size = right;
 		int right_size = data_length - right;
 
-		printf("[%d] sizes L:%d R:%d\n", world_rank, left_size, right_size);
+		if(debug_good){
+			fprintf(fdebug, "[%d] sizes T:%d L:%d R:%d\n", world_rank, data_length,
+				left_size, right_size);
+		}
 
 		int * left_sizes = (int*) malloc(q * sizeof(int));
 	
@@ -243,14 +273,20 @@ int main(int argc, char ** argv){
 		}
 		int right_total = data_length_total - left_total;
 
-		printf("[%d] totals L:%d R:%d\n", world_rank, left_total, right_total);
+		if(debug_good){
+			fprintf(fdebug, "[%d] totals T:%d L:%d R:%d\n", world_rank,
+				data_length_total, left_total, right_total);
+		}
 
 		//allocate processors to the 2 partitions
 		int available = q - 2;
-		int left_group_size = (left_total/data_length_total)*available + 1;
+		int left_group_size = ((left_total*available)/data_length_total) + 1;
 		int right_group_size = q - left_group_size;
 
-		printf("[%d] allocated L:%d R:%d\n", world_rank, left_group_size, right_group_size);
+		if(debug_good){
+			fprintf(fdebug, "[%d] allocated L:%d R:%d\n", world_rank,
+				left_group_size, right_group_size);
+		}
 
 		//split up buffer for distribution
 		free(send_cnt);
@@ -270,22 +306,26 @@ int main(int argc, char ** argv){
 		}
 		send_cnt[q-1] += right_size%right_group_size;
 
-		printf("[%d] send counts: ", world_rank);
-		for(z=0; z<q; z++){
-			printf("%d ", send_cnt[z]);
+		if(debug_good){
+			fprintf(fdebug, "[%d] send counts: ", world_rank);
+			for(z=0; z<q; z++){
+				fprintf(fdebug, "%d ", send_cnt[z]);
+			}
+			fprintf(fdebug, "\n");
 		}
-		printf("\n");
 
 		send_disp[0] = 0;
 		for(i=1; i<q; i++){
 			send_disp[i] = send_disp[i-1] + send_cnt[i-1];
 		}
 		
-		printf("[%d] displacements: ", world_rank);
-		for(z=0; z<q; z++){
-			printf("%d ", send_disp[z]);
+		if(debug_good){
+			fprintf(fdebug, "[%d] displacements: ", world_rank);
+			for(z=0; z<q; z++){
+				fprintf(fdebug, "%d ", send_disp[z]);
+			}
+			fprintf(fdebug, "\n");
 		}
-		printf("\n");
 
 		//send the vector sizes
 		int * recv_cnt = (int*) malloc(q * sizeof(int));
@@ -299,11 +339,13 @@ int main(int argc, char ** argv){
 			comm
 		);
 
-		printf("[%d] recv counts: ", world_rank);
-		for(z=0; z<q; z++){
-			printf("%d ", recv_cnt[z]);
+		if(debug_good){
+			fprintf(fdebug, "[%d] recv counts: ", world_rank);
+			for(z=0; z<q; z++){
+				fprintf(fdebug, "%d ", recv_cnt[z]);
+			}
+			fprintf(fdebug, "\n");
 		}
-		printf("\n");
 		
 		//prepare arguments
 		int total_inc_size = 0;
@@ -316,11 +358,13 @@ int main(int argc, char ** argv){
 			recv_disp[i] = recv_disp[i-1] + recv_cnt[i-1];
 		}
 
-		printf("[%d] recv displacements: ", world_rank);
-		for(z=0; z<q; z++){
-			printf("%d ", recv_disp[z]);
+		if(debug_good){
+			fprintf(fdebug, "[%d] recv displacements: ", world_rank);
+			for(z=0; z<q; z++){
+				fprintf(fdebug, "%d ", recv_disp[z]);
+			}
+			fprintf(fdebug, "\n");
 		}
-		printf("\n");
 
 		rec_data = (int*) malloc(total_inc_size * sizeof(int));
 
@@ -337,11 +381,13 @@ int main(int argc, char ** argv){
 			comm
 		);
 
-		printf("[%d] received %d elements: ", world_rank, total_inc_size);
-		for(z=0; z<total_inc_size; z++){
+		if(debug_good){
+			fprintf(fdebug, "[%d] received %d elements\n", world_rank, total_inc_size);
+		}
+		/*for(z=0; z<total_inc_size; z++){
 			printf("%d ", rec_data[z]);
 		}
-		printf("\n");
+		printf("\n");*/
 
 		//housekeeping
 		free(data);
@@ -366,7 +412,14 @@ int main(int argc, char ** argv){
 
 		MPI_Comm_size(comm, &q);
 
-		printf("[%d] color:%d rank:%d size:%d\n", world_rank, color, new_rank, q);
+		m = (color) ? left_total : right_total;
+
+		if(debug_good){
+			fprintf(fdebug, "[%d] color:%d rank:%d size:%d\n",
+				world_rank, color, new_rank, q);
+		}
+		seed += color;
+		srand(seed);//introduce more randomization, keep same groupings
 	}//end while
 
 	///////////////////////////////////////////////////////
@@ -390,13 +443,16 @@ int main(int argc, char ** argv){
 			data[min] = tmp;
 		}
 	}
+
+	MPI_Barrier(MPI_COMM_WORLD);
+	end_time = MPI_Wtime();
 	
 	///////////////////////////////////////////////////////
 	// END SORTING
 	// BEGIN OUTPUT SECTION
 	///////////////////////////////////////////////////////
 	
-	char path_buffer[50];
+	char path_buffer[100];
 	strcpy(path_buffer, OUT_PATH);
 	sprintf(path_buffer, "%spart%d.txt", path_buffer, world_rank);
 	
@@ -414,11 +470,11 @@ int main(int argc, char ** argv){
 	
 	fclose(out);
 	
-	//printf("[%d] sum barry urz!\n", world_rank);
 	MPI_Barrier(MPI_COMM_WORLD);
-	//printf("[%d] de r dun wit\n", world_rank);
 	
 	if(world_rank == 0){
+		printf("Execution Time: %lf\n", end_time - start_time);
+
 		strcpy(path_buffer, OUT_PATH);
 		sprintf(path_buffer, "%ssorted.txt", path_buffer);
 		
